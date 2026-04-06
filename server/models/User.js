@@ -49,6 +49,10 @@ const userSchema = new mongoose.Schema(
             name: String,
             phone: String
         },
+        profileImage: {
+            type: String,
+            default: ''
+        },
         bloodReports: [
             {
                 fileName: String,
@@ -56,7 +60,10 @@ const userSchema = new mongoose.Schema(
                     type: Date,
                     default: Date.now
                 },
-                fileUrl: String
+                fileUrl: {
+                    type: String,
+                    required: true
+                }
             }
         ],
         isActive: {

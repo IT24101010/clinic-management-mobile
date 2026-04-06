@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 
+const User = require('../models/User');
+const { uploadImage, uploadDocument } = require('../config/cloudinary');
+
 const {
     registerUser,
     loginUser,
@@ -33,6 +36,39 @@ const loginValidation = [
 // Routes
 router.post('/register', registerValidation, validateRequest, registerUser);
 router.post('/login', loginValidation, validateRequest, loginUser);
+
+router.post('/upload-avatar', protect, uploadImage.single('avatar'), async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.profileImage = req.file.path;
+        await user.save();
+        res.json({ imageUrl: req.file.path, user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error uploading avatar', error: error.message });
+    }
+});
+
+router.post('/upload-report', protect, uploadDocument.single('report'), async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const newReport = {
+            fileUrl: req.file.path,
+            fileName: req.file.originalname,
+            uploadDate: new Date()
+        };
+
+        user.bloodReports.push(newReport);
+        await user.save();
+
+        res.json(newReport);
+    } catch (error) {
+        res.status(500).json({ message: 'Error uploading report', error: error.message });
+    }
+});
 
 router
     .route('/profile')
