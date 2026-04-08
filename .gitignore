@@ -36,6 +36,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+CLAUDE.md
 
 # Coverage
 coverage/
