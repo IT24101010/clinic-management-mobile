@@ -7,7 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/axiosConfig';
 import ErrorAlert from '../../components/shared/ErrorAlert';
-import colors from '../../constants/colors';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 
 export default function ServiceFormScreen({ navigation, route }) {
   const existing = route?.params?.service;
@@ -23,8 +23,10 @@ export default function ServiceFormScreen({ navigation, route }) {
     isActive:    existing?.isActive     !== undefined ? existing.isActive   : true,
   });
 
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState('');
+  const [saving,     setSaving]     = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+  const [error,      setError]      = useState('');
+  const [confirmCfg, setConfirmCfg] = useState(null);
 
   const set = (key) => (val) => {
     setError('');
@@ -67,11 +69,29 @@ export default function ServiceFormScreen({ navigation, route }) {
     }
   };
 
+  // ── Hard delete ──────────────────────────────────────────────────────────
+  const askHardDelete = () => setConfirmCfg({
+    title:        'Permanently delete?',
+    message:      `"${existing?.serviceName}" will be removed forever and cannot be recovered.`,
+    confirmText:  'Delete permanently',
+    confirmColor: '#D6574F',
+    onConfirm: async () => {
+      setConfirmCfg(null);
+      setDeleting(true);
+      try {
+        await api.delete(`/api/services/${existing._id}/hard`);
+        navigation.goBack();
+      } catch (e) {
+        setError(e?.response?.data?.message || 'Failed to delete');
+        setDeleting(false);
+      }
+    },
+  });
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Basic header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#0E1422" />
@@ -114,8 +134,43 @@ export default function ServiceFormScreen({ navigation, route }) {
             }
           </TouchableOpacity>
 
+          {/* ── Danger zone ── */}
+          {isEdit && (
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerTitle}>Danger zone</Text>
+              <Text style={styles.dangerNote}>
+                Permanently deletes this service and all associated data. This action cannot be undone.
+              </Text>
+              <TouchableOpacity
+                onPress={askHardDelete}
+                disabled={deleting}
+                style={[styles.dangerBtn, deleting && { opacity: 0.7 }]}
+              >
+                {deleting
+                  ? <ActivityIndicator size="small" color="#D6574F" />
+                  : <Ionicons name="trash-outline" size={15} color="#D6574F" />
+                }
+                <Text style={styles.dangerBtnText}>
+                  {deleting ? 'Deleting…' : 'Permanently delete service'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {confirmCfg && (
+        <ConfirmDialog
+          visible
+          title={confirmCfg.title}
+          message={confirmCfg.message}
+          confirmText={confirmCfg.confirmText}
+          confirmColor={confirmCfg.confirmColor}
+          onConfirm={confirmCfg.onConfirm}
+          onCancel={() => setConfirmCfg(null)}
+        />
+      )}
     </View>
   );
 }
@@ -131,4 +186,9 @@ const styles = StyleSheet.create({
   toggleRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   saveBtn:     { marginTop: 24, backgroundColor: '#0E1422', borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  dangerZone:  { marginTop: 20, borderRadius: 16, padding: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#F0C2C0' },
+  dangerTitle: { fontSize: 13, fontWeight: '700', color: '#D6574F', marginBottom: 6 },
+  dangerNote:  { fontSize: 12, color: '#7A8296', lineHeight: 17, marginBottom: 12 },
+  dangerBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: '#FADBD9', borderWidth: 1, borderColor: '#F0C2C0' },
+  dangerBtnText: { fontSize: 13, fontWeight: '700', color: '#D6574F' },
 });
